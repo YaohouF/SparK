@@ -73,10 +73,16 @@ class SparK(nn.Module):
         print(f'[SparK.__init__] dims of mask_tokens={tuple(p.numel() for p in self.mask_tokens)}')
         
         # these are deprecated and would never be used; can be removed.
+
+ 
+        '''
         self.register_buffer('imn_m', torch.empty(1, 3, 1, 1))
         self.register_buffer('imn_s', torch.empty(1, 3, 1, 1))
         self.register_buffer('norm_black', torch.zeros(1, 3, input_size, input_size))
-        self.vis_active = self.vis_active_ex = self.vis_inp = self.vis_inp_mask = ...
+        self.vis_active = self.vis_active_ex = self.vis_inp = self.vis_inp_mask = ... 
+       
+        '''
+
     
     def mask(self, B: int, device, generator=None):
         h, w = self.fmap_h, self.fmap_w
