@@ -4,77 +4,42 @@ import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image, ImageDraw
 
-class TextRegionMasker:
-    def __init__(self, image_size=(512, 512), mask_ratio=0.6):
-        self.image_size = image_size
-        self.mask_ratio = mask_ratio
+import cv2
+import numpy as np
 
-    def mask_text_regions(self, text_regions):
-        # Create a binary mask for each text region and combine them
-        indices = torch.zeros((1, 1, *self.image_size), dtype=torch.bool)
+# Extract input data, image and bounding boxes
+image_path = '/Users/fanyaohou/Desktop/SynthText/SynthText/1/ant+hill_1_0.jpg'
+test_image = cv2.imread(image_path)
+real_image = cv2.resize(test_image, (512, 512))
+text_path = '/Users/fanyaohou/Desktop/SynthText/SynthText/label/1--ant+hill_1_0.txt'
+text_polys = []
 
-        for region in text_regions:
-            # Convert the 4 points to a polygon mask
-            polygon_mask = self.polygon_to_mask(region)
+with open(text_path, 'r', encoding='utf-8-sig') as f:
+    lines = f.readlines()
+    for line in lines:
+        poly_lines = line.strip().split(',', 8)
+        x1, y1, x2, y2, x3, y3, x4, y4 = list(map(int, poly_lines[:8]))
+        text_polys.append([[x1, y1], [x2, y2], [x3, y3], [x4, y4]])
 
-            # Update the indices tensor with the polygon mask
-            indices |= polygon_mask
 
-        # Apply mask ratio
-        indices = self.apply_mask_ratio(indices)
+#mask = np.zeros((512, 512), dtype=np.uint8)
 
-        return indices
+def mask_patch(patch, mask_ratio):
+    return np.random.choice([0, 255], size=patch.shape, p=[1 - mask_ratio, mask_ratio])
 
-    def polygon_to_mask(self, polygon):
-        polygon = [(int(point[0]), int(point[1])) for point in polygon]
-        # Create a binary mask from the polygon
-        mask = Image.new('L', self.image_size, 0)
-        ImageDraw.Draw(mask).polygon(polygon, outline=1, fill=1)
-        return torch.tensor(np.array(mask), dtype=torch.bool).unsqueeze(0).unsqueeze(0)
 
-    def apply_mask_ratio(self, indices):
-        # Flatten the indices tensor
-        flattened_indices = indices.view(-1)
+# Create a mask for the bounding box
+for text_region in text_polys:
+    text_region_array = np.array(text_region, dtype=np.int32).reshape((4, 2))
+    for i in range(0, len(text_region_array), 2):
+        x1, y1, x2, y2 = text_region_array[i:i + 2].flatten()
+        patch = real_image[y1:y2, x1:x2]
+        masked_patch = mask_patch(patch, 0.7)
+        real_image[y1:y2, x1:x2] = masked_patch
 
-        # Calculate the number of pixels to mask
-        num_pixels_to_mask = int(self.mask_ratio * flattened_indices.size(0))
-
-        # Randomly choose the indices to mask
-        masked_indices = torch.randperm(flattened_indices.size(0))[:num_pixels_to_mask]
-
-        # Update the selected indices to True
-        flattened_indices[masked_indices] = True
-
-        # Reshape the indices tensor to its original shape
-        indices = flattened_indices.view(indices.size())
-
-        return indices
-
-# Example usage:
-# Assuming you have an instance of TextRegionMasker named masker
-image_size = (512, 512)
-mask_ratio = 0.6
-masker = TextRegionMasker(image_size=image_size, mask_ratio=mask_ratio)
-
-text_regions = [
-    [[277, 123], [330, 159], [311, 186], [259, 150]],
-    [[81, 10], [90, 23], [35, 65], [25, 52]],
-    [[125, 8], [140, 26], [78, 76], [63, 58]],
-    [[518, 329], [586, 345], [579, 374], [511, 358]],
-    [[520, 368], [594, 391], [586, 418], [512, 395]],
-    [[3, 309], [56, 254], [130, 326], [77, 380]],
-    [[61, 225], [117, 172], [220, 280], [164, 333]],
-    [[127, 361], [255, 411], [231, 473], [103, 423]],
-    [[120, 8], [219, 10], [218, 46], [120, 44]]
-]
-
-# Generate the text region mask
-text_region_mask = masker.mask_text_regions(text_regions)
-
-# Plot the mask on a blank image (for visualization purposes)
-plt.imshow(text_region_mask.squeeze().cpu().numpy(), cmap='gray')
-plt.show()
-
+cv2.imshow("Result Image", real_image)
+cv2.waitKey(0)
+cv2.destroyAllWindows()
 
 
 '''
