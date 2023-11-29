@@ -5,6 +5,13 @@ import matplotlib.pyplot as plt
 from torchvision.transforms import ToTensor
 import numpy as np
 
+def resize_padding(image, w=512):
+    max_wh = max(image.shape[0], image.shape[1])
+    newImage = np.zeros((max_wh, max_wh, 3), np.uint8)
+    newImage[:image.shape[0], :image.shape[1], :] = image
+    newImage = cv2.resize(newImage, (w, w))
+    return newImage
+
 # Hypothetical Test Image
 image_path = '/Users/fanyaohou/Desktop/SynthText/SynthText/1/ant+hill_1_0.jpg'
 test_image = cv2.imread(image_path)
@@ -13,7 +20,7 @@ real_image = real_image/255.0
 device='cuda' if torch.cuda.is_available() else 'cpu'
 
 #get coords
-text_path = '/Users/fanyaohou/Desktop/SynthText/SynthText/label/1--ant+hill_1_0.txt'
+text_path = '/Users/fanyaohou/Desktop/SynthText/label/1--ant+hill_1_0.txt'
 text_polys = []
 with open(text_path, 'r', encoding='utf-8-sig') as f:
     lines = f.readlines()
@@ -22,7 +29,7 @@ with open(text_path, 'r', encoding='utf-8-sig') as f:
         x1, y1, x2, y2, x3, y3, x4, y4 = list(map(int, poly_lines[:8]))
         text_polys.append([[x1, y1], [x2, y2], [x3, y3], [x4, y4]])
 
-def mask(B: int, device, image_h, image_w, generator=None, mask_ratio = 0.6):
+def mask(B: int, device, image_h, image_w, generator=None, mask_ratio = 0.4):
     h, w = image_h, image_w
     fmap_h, fmap_w = h // 32, w // 32
     len_keep = round(fmap_h * fmap_w * (1 - mask_ratio))
@@ -45,7 +52,7 @@ def ROI_mask(B: int, device, image_h, image_w, text_polys_list):
     fmap_h, fmap_w = h // 32, w // 32
     masks = []
     for i in range(B):
-        mask = np.zeros((fmap_h, fmap_w), dtype=np.uint8)
+        mask = np.zeros((h, w), dtype=np.uint8)
         text_polys = text_polys_list[i]
 
         for text_poly in text_polys:
@@ -61,18 +68,42 @@ def ROI_mask(B: int, device, image_h, image_w, text_polys_list):
 # get random mask
 image_size = (real_image.shape[0], real_image.shape[1])
 random_b1ff = mask(1, device,real_image.shape[0], real_image.shape[1])
-print(random_b1ff.shape)
 
 # get text mask
 text_polys_list = [text_polys]
 text_b1ff = ROI_mask(1, device,real_image.shape[0], real_image.shape[1], text_polys_list)
-print(text_b1ff.shape)
 
-active_b1hw = random_b1ff*text_b1ff
+active_b1hw = random_b1ff*text_b1ff ^ 1
 active_b1hw = active_b1hw.repeat_interleave(32, 2).repeat_interleave(32, 3)
 
+inp_bchw = torch.tensor(real_image, dtype=torch.float32).permute(2, 0, 1).unsqueeze(0)  # Add batch dimension
+masked_bchw = inp_bchw*active_b1hw
+print(masked_bchw.shape)
+
+# Visualize random mask
+plt.subplot(1, 4, 1)
+plt.imshow(random_b1ff[0, 0].cpu().numpy(), cmap='gray')
+plt.title('Random Mask')
+
+# Visualize text mask
+plt.subplot(1, 4, 2)
+plt.imshow(text_b1ff[0, 0].cpu().numpy(), cmap='gray')
+plt.title('Text Mask')
+
+# Visualize combined mask
+plt.subplot(1, 4, 3)
+plt.imshow(active_b1hw[0, 0].cpu().numpy(), cmap='gray')
+plt.title('Combined Mask')
+
+plt.subplot(1, 4, 4)
+plt.imshow(masked_bchw[0, 0].cpu().numpy(), cmap='gray')
+plt.title('real image')
+
+plt.show()
+
+'''
 masked_image = real_image.copy()
-masked_image[active_b1hw > 0] = [255, 0, 0]
+masked_image[active_b1hw.squeeze(0).squeeze(0) > 0] = [255, 0, 0]
 fig, axs = plt.subplots(1, 2, figsize=(12, 6))
 
 axs[0].imshow(real_image)
@@ -81,8 +112,7 @@ axs[0].set_title('Original Image')
 axs[1].imshow(masked_image)
 axs[1].set_title('Masked Image')
 plt.show()
-
-
+'''
 
 #算出长和宽去mask text region。
 #这里想要用的话想要找到大的矩形框去覆盖原来的rotated box。

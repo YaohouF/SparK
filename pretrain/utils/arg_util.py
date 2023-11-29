@@ -26,7 +26,7 @@ class Args(Tap):
     
     # encoder hyperparameters
     model: str = 'resnet50'
-    input_size: int = 224
+    input_size: int = 512
     sbn: bool = True
     
     # data hyperparameters

@@ -308,6 +308,7 @@ class MetricLogger(object):
         if isinstance(itrt, Iterator) and not hasattr(itrt, 'preload') and not hasattr(itrt, 'set_epoch'):
             for i in range(max_iters):
                 obj = next(itrt)
+                #img, mask = obj
                 self.data_time.update(time.time() - end)
                 yield obj
                 self.iter_time.update(time.time() - end)
@@ -321,6 +322,7 @@ class MetricLogger(object):
                 end = time.time()
         else:
             for i, obj in enumerate(itrt):
+                #img, mask = obj
                 self.data_time.update(time.time() - end)
                 yield obj
                 self.iter_time.update(time.time() - end)

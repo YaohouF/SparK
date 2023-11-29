@@ -90,10 +90,11 @@ class SparK(nn.Module):
         idx = idx[:, :self.len_keep].to(device)  # (B, len_keep)
         return torch.zeros(B, h * w, dtype=torch.bool, device=device).scatter_(dim=1, index=idx, value=True).view(B, 1, h, w)
     
-    def forward(self, inp_bchw: torch.Tensor, active_b1ff=None, vis=False):
+    def forward(self, inp_bchw: torch.Tensor, text_mask, active_b1ff=None, vis=False):
         # step1. Mask
         if active_b1ff is None:     # rand mask
             active_b1ff: torch.BoolTensor = self.mask(inp_bchw.shape[0], inp_bchw.device)  # (B, 1, f, f)
+        active_b1ff = active_b1ff * text_mask ^ 1
         encoder._cur_active = active_b1ff    # (B, 1, f, f)
         active_b1hw = active_b1ff.repeat_interleave(self.downsample_raito, 2).repeat_interleave(self.downsample_raito, 3)  # (B, 1, H, W)
         masked_bchw = inp_bchw * active_b1hw

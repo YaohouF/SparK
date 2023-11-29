@@ -22,7 +22,7 @@ from models import build_sparse_encoder
 from sampler import DistInfiniteBatchSampler, worker_init_fn
 from spark import SparK
 from utils import arg_util, misc, lamb
-from utils.imagenet import build_dataset_to_pretrain
+from utils.imagenet import build_dataset_to_pretrain, synthtext_dataset
 from utils.lr_control import lr_wd_annealing, get_param_groups
 
 
@@ -42,7 +42,7 @@ def main_pt():
     
     # build data
     print(f'[build data for pre-training] ...\n')
-    dataset_train = build_dataset_to_pretrain(args.data_path, args.input_size)
+    dataset_train = synthtext_dataset(args.data_path, args.input_size)
     data_loader_train = DataLoader(
         dataset=dataset_train, num_workers=args.dataloader_workers, pin_memory=True,
         batch_sampler=DistInfiniteBatchSampler(
@@ -150,11 +150,11 @@ def pre_train_one_ep(ep, args: arg_util.Args, tb_lg: misc.TensorboardLogger, itr
     for it, inp in enumerate(me.log_every(iters_train, itrt_train, 3, header)):
         # adjust lr and wd
         min_lr, max_lr, min_wd, max_wd = lr_wd_annealing(optimizer, args.lr, args.wd, args.wde, it + ep * iters_train, args.wp_ep * iters_train, args.ep * iters_train)
-        
+        img, mask = inp
         # forward and backward
-        inp = inp.to(args.device, non_blocking=True)
+        img, mask = img.to(args.device, non_blocking=True), mask.to(args.device, non_blocking=True)
         SparK.forward
-        loss = model(inp, active_b1ff=None, vis=False)
+        loss = model(inp, mask, active_b1ff=None, vis=False)
         optimizer.zero_grad()
         loss.backward()
         loss = loss.item()
