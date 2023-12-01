@@ -21,7 +21,7 @@ if __name__ == '__main__':
     data_loader_train=DataLoader(
         dataset=dataset_train, num_workers=1, pin_memory=True,
         batch_sampler=DistInfiniteBatchSampler(
-            dataset_len=len(dataset_train), glb_batch_size=1,
+            dataset_len=len(dataset_train), glb_batch_size=2,
             shuffle=True, filling=True, rank=dist.get_rank(), world_size=dist.get_world_size(),
         ), worker_init_fn=worker_init_fn
     )
@@ -32,7 +32,7 @@ if __name__ == '__main__':
         img, mask = obj
         i += 1
     # You can print or visualize the loaded data here
-        print(f"Batch {j + 1} - Image shape: {img.shape}, mask shape: {mask.shape}")
+        print(f"Batch {j + 1} - Image shape: {img.shape}, Image type: {img.dtype}, mask shape: {mask.shape}")
         if i > 20:
             break
     # Add code for visualization if needed
