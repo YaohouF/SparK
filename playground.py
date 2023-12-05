@@ -13,14 +13,14 @@ def resize_padding(image, w=512):
     return newImage
 
 # Hypothetical Test Image
-image_path = '/Users/fanyaohou/Desktop/SynthText/SynthText/188/village_9_0.jpg'
+image_path = '/Users/fanyaohou/Desktop/SynthText/SynthText/1/ant+hill_1_48.jpg'
 test_image = cv2.imread(image_path)
 real_image = cv2.resize(test_image, (576, 576))
 real_image = real_image/255.0
 device='cuda' if torch.cuda.is_available() else 'cpu'
 
 #get coords
-text_path = '/Users/fanyaohou/Desktop/SynthText/label/188--village_9_0.txt'
+text_path = '/Users/fanyaohou/Desktop/SynthText/label/1--ant+hill_1_48.txt'
 text_polys = []
 with open(text_path, 'r', encoding='utf-8-sig') as f:
     lines = f.readlines()
@@ -90,7 +90,9 @@ text_polys_list = [text_polys]
 text_b1ff = ROI_mask(1, device,test_image.shape[0], test_image.shape[1], text_polys_list)
 print(text_b1ff)
 image_size = (real_image.shape[0], real_image.shape[1])
-active_b1ff = scale_mask(1, device,real_image.shape[0], real_image.shape[1], text_b1ff, scaling_factor=0.1)
+#active_b1ff = scale_mask(1, device,real_image.shape[0], real_image.shape[1], text_b1ff, scaling_factor=0.1)
+random_mask = mask(1, device,real_image.shape[0], real_image.shape[1])
+active_b1ff = (text_b1ff * random_mask) ^1
 active_b1hw = active_b1ff.repeat_interleave(32, 2).repeat_interleave(32, 3)
 inp_bchw = torch.tensor(real_image, dtype=torch.float32).permute(2, 0, 1).unsqueeze(0)  # Add batch dimension
 masked_bchw = inp_bchw*active_b1hw
@@ -187,3 +189,4 @@ def text_mask(B: int, text_regions, device, generator=None, mask_ratio = 0.6):
 
 
 
+ 
