@@ -49,13 +49,13 @@ def ROI_mask(image_h, image_w, text_polys, input_size):
 Our own dataset
 '''
 class synthtext_dataset(Dataset):
-    def __init__(self, data_folder, input_size):
+    def __init__(self, data_folder, input_size, transforms):
         super(synthtext_dataset, self).__init__()
         self.img_path = data_folder + '/' + 'SynthText/'
-        print(self.img_path)
         self.gt_path = data_folder + '/' + 'label/'
-        print(self.gt_path)
         self.input_size = input_size
+        self.transform = transforms
+        self.loader = pil_loader
         # get file names of each gt
         self.gt_files = [os.path.join(self.gt_path, gt_file)
                          for gt_file in sorted(os.listdir(self.gt_path))]
@@ -67,7 +67,6 @@ class synthtext_dataset(Dataset):
     def __getitem__(self, index):
         cv2.setNumThreads(0)
         cv2.ocl.setUseOpenCL(False)
-        transform = transforms.Normalize(mean=IMAGENET_DEFAULT_MEAN, std=IMAGENET_DEFAULT_STD)
         gt_path = self.gt_files[index]
         foldernum, name = gt_path.split('--')
         imgname = name.replace('.txt', '.jpg')
@@ -90,12 +89,10 @@ class synthtext_dataset(Dataset):
                 else:
                     text_tags.append(False)                
                 '''
-        img = cv2.imread(str(self.img_path + foldernum + '/' + imgname), cv2.IMREAD_COLOR)
+        img = self.loader(str(self.img_path + foldernum + '/' + imgname))
         # Generate text mask before resize it
-        text_mask = ROI_mask(img.shape[0], img.shape[1], text_polys, self.input_size)
-        img = cv2.resize(img, (self.input_size, self.input_size))
-        img = torch.from_numpy(img.transpose(2, 0, 1)).float()
-        return transform(img), text_mask
+        text_mask = ROI_mask(img.size[0], img.size[1], text_polys, self.input_size)
+        return self.transform(img), text_mask
 
 
 class ImageNetDataset(DatasetFolder):
@@ -145,9 +142,9 @@ def build_dataset_to_pretrain(dataset_path, input_size) -> Dataset:
     
     dataset_path = os.path.abspath(dataset_path)
     
-    dataset_train = synthtext_dataset(data_folder=dataset_path, transform=trans_train)
+    dataset_train, text_mask = synthtext_dataset(data_folder=dataset_path, transform=trans_train)
     print_transform(trans_train, '[pre-train]')
-    return dataset_train
+    return dataset_train, text_mask
 
 
 def print_transform(transform, s):

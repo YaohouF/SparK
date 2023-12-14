@@ -94,7 +94,7 @@ class SparK(nn.Module):
         # step1. Mask
         if active_b1ff is None:     # rand mask
             active_b1ff: torch.BoolTensor = self.mask(inp_bchw.shape[0], inp_bchw.device)  # (B, 1, f, f)
-        active_b1ff = active_b1ff * text_mask ^ 1
+        active_b1ff = (active_b1ff * text_mask) ^ 1
         encoder._cur_active = active_b1ff    # (B, 1, f, f)
         active_b1hw = active_b1ff.repeat_interleave(self.downsample_raito, 2).repeat_interleave(self.downsample_raito, 3)  # (B, 1, H, W)
         masked_bchw = inp_bchw * active_b1hw
